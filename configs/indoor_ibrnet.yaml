@@ -1,0 +1,24 @@
+# 공통 하이퍼파라미터 (IBRNet repo의 기본 configs에서 override)
+train:
+  num_epochs: 20
+  batch_size: 1024
+  lr: 5e-4
+  rays_per_step: 8192
+  num_source_views: 6
+  appearance_embedding_dim: 8   # NeRF-W 식 임베딩(노출/WB 흡수)
+
+regularization:
+  use_sparse_depth: true         # DS-NeRF식 깊이 손실
+  sparse_depth_sigma: 0.01
+  depth_loss_weight: 0.1
+
+  use_distortion_loss: true      # Mip-NeRF 360 왜곡 정규화
+  distortion_weight: 0.001
+
+  normal_smooth_weight: 0.0      # 유리/반사 많은 교실만 키우기(Ref-NeRF 힌트)
+data:
+  use_masks: false               # 사람/창밖 제거 마스크 있으면 true
+render:
+  n_coarse: 64
+  n_fine: 64
+  white_bkgd: true
