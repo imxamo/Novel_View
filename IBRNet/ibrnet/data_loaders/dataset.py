@@ -120,22 +120,22 @@ class TransformsDataset(Dataset):
         N_src = src_rgbs.shape[0]
 
         # ----- intrinsics에서 카메라 벡터 34차원 만들기 -----
-        fx, fy, cx, cy = self.intrinsics      # (4,)
-
-        # 4x4 intrinsics 행렬 (첫 4원소는 [fx, fy, cx, cy])
-        intr_flat = np.zeros((16,), dtype=np.float32)
-        intr_flat[0] = fx
-        intr_flat[1] = fy
-        intr_flat[2] = cx
-        intr_flat[3] = cy
-        # 나머지 12개는 필요하면 적당히 세팅, 일단 0 유지 (IBRNet은 주로 fx,fy,cx,cy만 씀)
-
-        # 타겟 카메라 34차원 벡터
+        fx, fy, cx, cy = self.intrinsics  # (4,)
+        
+        # 4x4 K 행렬을 직접 구성
+        K = np.eye(4, dtype=np.float32)
+        K[0, 0] = fx
+        K[1, 1] = fy
+        K[0, 2] = cx
+        K[1, 2] = cy
+        
+        intr_flat = K.reshape(-1)  # (16,)
+        
         cam_vec = np.zeros((34,), dtype=np.float32)
         cam_vec[0] = H
         cam_vec[1] = W
-        cam_vec[2:18] = intr_flat           # 16개
-        cam_vec[18:34] = tgt_c2w.reshape(-1)  # 4x4 → 16개
+        cam_vec[2:18] = intr_flat
+        cam_vec[18:34] = tgt_c2w.reshape(-1)
 
         # 소스 카메라들 34차원 벡터 (N_src, 34)
         src_cam_vecs = np.zeros((N_src, 34), dtype=np.float32)
