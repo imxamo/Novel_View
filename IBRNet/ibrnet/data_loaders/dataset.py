@@ -163,5 +163,7 @@ class TransformsDataset(Dataset):
                 "c2w": src_c2w[i],   # (4, 4) tensor
             })
         data["src_cameras"] = src_cameras
+        # 실내 기준 drpth_range 설정
+        data["depth_range"] = torch.tensor([0.1, 5.0], dtype=torch.float32)
 
         return data
