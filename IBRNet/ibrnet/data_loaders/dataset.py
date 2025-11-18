@@ -89,81 +89,78 @@ class TransformsDataset(Dataset):
 
     def __getitem__(self, idx):
         """
-        train.py에서 요구하는 포맷에 맞춤
-
-        반환:
-            - target_rgb : (H, W, 3) float32 tensor
-            - target_c2w : (4, 4) tensor
-            - src_rgbs   : (N_src, H, W, 3) tensor
-            - src_c2w    : (N_src, 4, 4) tensor
-            - intrinsics : (4,) tensor [fx, fy, cx, cy]
-            - scene_name : str
-            - img_index  : int
-
-        + IBRNet 호환용 추가 키:
-            - rgb         : target_rgb와 동일
-            - rgb_path    : 현재 타겟 이미지의 경로(str)
-            - camera      : dict {H, W, intrinsics, c2w}
-            - src_cameras : list of dicts
+        IBRNetdml train
+            - rgb: (H, W, 3)  타겟 이미지
+            - rgb_path: str   타겟 이미지 경로
+            - camera: (34,)   타겟 카메라 벡터
+            - src_rgbs: (N_src, H, W, 3)
+            - src_cameras: (N_src, 34)
+            - depth_range: (2,)
         """
+
+        H, W = self.H, self.W
+
         # ----- 타겟 뷰 -----
-        tgt_rgb_np = self.images[idx]   # (H, W, 3) numpy
-        tgt_c2w_np = self.c2w[idx]      # (4, 4)   numpy
+        tgt_rgb = self.images[idx]            # (H, W, 3), np.float32
+        tgt_c2w = self.c2w[idx]               # (4, 4), np.float32
+        tgt_path = str(self.image_paths[idx])
 
-        # 소스 인덱스: 나머지 모든 뷰
-        all_indices = list(range(self.n_images))
-        src_indices = [i for i in all_indices if i != idx]
+        # ----- 소스 뷰 인덱스 선택 -----
+        all_ids = list(range(self.n_images))
+        src_ids = [i for i in all_ids if i != idx]
 
-        src_rgbs_np = self.images[src_indices]   # (N_src, H, W, 3)
-        src_c2w_np  = self.c2w[src_indices]      # (N_src, 4, 4)
+        # num_source_views 만큼만 사용 (config의 args.num_source_views)
+        N_src_cfg = getattr(self.args, "num_source_views", 4)
+        if len(src_ids) > N_src_cfg:
+            # 간단히 앞에서 N개만 사용 (원하면 랜덤샘플링 가능)
+            src_ids = src_ids[:N_src_cfg]
 
-        # numpy → torch
-        tgt_rgb = torch.from_numpy(tgt_rgb_np)       # (H, W, 3)
-        tgt_c2w = torch.from_numpy(tgt_c2w_np)       # (4, 4)
-        src_rgbs = torch.from_numpy(src_rgbs_np)     # (N_src, H, W, 3)
-        src_c2w  = torch.from_numpy(src_c2w_np)      # (N_src, 4, 4)
-        intr     = torch.from_numpy(self.intrinsics) # (4,)
+        src_rgbs = self.images[src_ids]       # (N_src, H, W, 3), np.float32
+        src_c2w = self.c2w[src_ids]           # (N_src, 4, 4), np.float32
+        N_src = src_rgbs.shape[0]
 
-        H, W = tgt_rgb.shape[:2]
+        # ----- intrinsics에서 카메라 벡터 34차원 만들기 -----
+        fx, fy, cx, cy = self.intrinsics      # (4,)
 
-        # ----- 기본 키들 -----
-        data = {
-            "target_rgb": tgt_rgb,
-            "target_c2w": tgt_c2w,
-            "src_rgbs": src_rgbs,
-            "src_c2w": src_c2w,
-            "intrinsics": intr,
+        # 4x4 intrinsics 행렬 (첫 4원소는 [fx, fy, cx, cy])
+        intr_flat = np.zeros((16,), dtype=np.float32)
+        intr_flat[0] = fx
+        intr_flat[1] = fy
+        intr_flat[2] = cx
+        intr_flat[3] = cy
+        # 나머지 12개는 필요하면 적당히 세팅, 일단 0 유지 (IBRNet은 주로 fx,fy,cx,cy만 씀)
+
+        # 타겟 카메라 34차원 벡터
+        cam_vec = np.zeros((34,), dtype=np.float32)
+        cam_vec[0] = H
+        cam_vec[1] = W
+        cam_vec[2:18] = intr_flat           # 16개
+        cam_vec[18:34] = tgt_c2w.reshape(-1)  # 4x4 → 16개
+
+        # 소스 카메라들 34차원 벡터 (N_src, 34)
+        src_cam_vecs = np.zeros((N_src, 34), dtype=np.float32)
+        for i in range(N_src):
+            src_cam_vecs[i, 0] = H
+            src_cam_vecs[i, 1] = W
+            src_cam_vecs[i, 2:18] = intr_flat
+            src_cam_vecs[i, 18:34] = src_c2w[i].reshape(-1)
+
+        # ----- 깊이 범위 (near, far) 대충 설정 -----
+        # classroom 씬이면 대략 0.5m ~ 5m 정도로 시작해 보고, 나중에 튜닝 가능
+        depth_range = np.array([0.5, 5.0], dtype=np.float32)
+
+        # ----- numpy → torch -----
+        import torch
+
+        sample = {
+            "rgb":        torch.from_numpy(tgt_rgb),          # (H, W, 3)
+            "rgb_path":   tgt_path,
+            "camera":     torch.from_numpy(cam_vec),          # (34,)
+            "src_rgbs":   torch.from_numpy(src_rgbs),         # (N_src, H, W, 3)
+            "src_cameras": torch.from_numpy(src_cam_vecs),    # (N_src, 34)
+            "depth_range": torch.from_numpy(depth_range),     # (2,)
             "scene_name": self.scene_name,
-            "img_index": idx,
+            "img_index":  idx,
         }
 
-        # ----- IBRNet 호환 키들 추가 -----
-        # rgb: 타겟 이미지
-        data["rgb"] = tgt_rgb
-
-        # rgb_path: 현재 타겟 이미지의 경로 (문자열)
-        # self.image_paths는 __init__에서 만듬
-        data["rgb_path"] = str(self.image_paths[idx])
-
-        # camera: 단일 타겟 뷰 카메라 정보
-        data["camera"] = {
-            "H": H,
-            "W": W,
-            "intrinsics": intr,   # [fx, fy, cx, cy] tensor
-            "c2w": tgt_c2w,       # (4, 4) tensor
-        }
-
-        # src_cameras: 소스 뷰 카메라 정보 리스트
-        src_cameras = []
-        for i in range(src_c2w.shape[0]):
-            src_cameras.append({
-                "H": H,
-                "W": W,
-                "intrinsics": intr,
-                "c2w": src_c2w[i],   # (4, 4) tensor
-            })
-        data["src_cameras"] = src_cameras
-        # 실내 기준 drpth_range 설정
-        data["depth_range"] = torch.tensor([0.1, 5.0], dtype=torch.float32)
-
-        return data
+        return sample
