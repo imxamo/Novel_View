@@ -25,8 +25,20 @@ rng = np.random.RandomState(234)
 
 
 def parse_camera(params):
+
+    if isinstance(params, dict):
+        H = params['H']
+        W = params['W']
+        intrinsics = params['intrinsics']   # 보통 [fx, fy, cx, cy] tensor
+        c2w_mat = params['c2w']             # (4, 4) tensor
+        return W, H, intrinsics, c2w_mat
+    
     H = params[:, 0]
     W = params[:, 1]
+    fx = params[:, 2]
+    fy = params[:, 3]
+    cx = params[:, 4]
+    cy = params[:, 5]
     intrinsics = params[:, 2:18].reshape((-1, 4, 4))
     c2w = params[:, 18:34].reshape((-1, 4, 4))
     return W, H, intrinsics, c2w
