@@ -89,35 +89,45 @@ class TransformsDataset(Dataset):
 
     def __getitem__(self, idx):
         """
-        IBRNet의 train.py에서 기대하는 포맷과 1:1로 맞추진 않았고,
-        우선은 '타겟 한 뷰 + 소스 여러 뷰'를 반환하는 형태로 둔다.
-        (추가적인 키/shape 맞추기는 나중 에러 메시지 보고 조정)
+        train.py에서 요구하는 포맷에 맞춤
 
-        현재 반환 예시:
-            target_rgb : (H, W, 3) float32
-            target_c2w : (4, 4)
-            src_rgbs   : (N_src, H, W, 3)
-            src_c2w    : (N_src, 4, 4)
-            intrinsics : (4,)
+        반환:
+            - target_rgb : (H, W, 3) float32 tensor
+            - target_c2w : (4, 4) tensor
+            - src_rgbs   : (N_src, H, W, 3) tensor
+            - src_c2w    : (N_src, 4, 4) tensor
+            - intrinsics : (4,) tensor [fx, fy, cx, cy]
+            - scene_name : str
+            - img_index  : int
+
+        + IBRNet 호환용 추가 키:
+            - rgb         : target_rgb와 동일
+            - rgb_path    : 현재 타겟 이미지의 경로(str)
+            - camera      : dict {H, W, intrinsics, c2w}
+            - src_cameras : list of dicts
         """
-        tgt_rgb = self.images[idx]   # (H, W, 3)
-        tgt_c2w = self.c2w[idx]     # (4, 4)
+        # ----- 타겟 뷰 -----
+        tgt_rgb_np = self.images[idx]   # (H, W, 3) numpy
+        tgt_c2w_np = self.c2w[idx]      # (4, 4)   numpy
 
+        # 소스 인덱스: 나머지 모든 뷰
         all_indices = list(range(self.n_images))
         src_indices = [i for i in all_indices if i != idx]
 
-        # 일단 소스는 전체 - 타겟
-        src_rgbs = self.images[src_indices]   # (N_src, H, W, 3)
-        src_c2w = self.c2w[src_indices]       # (N_src, 4, 4)
+        src_rgbs_np = self.images[src_indices]   # (N_src, H, W, 3)
+        src_c2w_np  = self.c2w[src_indices]      # (N_src, 4, 4)
 
         # numpy → torch
-        tgt_rgb = torch.from_numpy(tgt_rgb)       # (H, W, 3)
-        tgt_c2w = torch.from_numpy(tgt_c2w)       # (4, 4)
-        src_rgbs = torch.from_numpy(src_rgbs)     # (N_src, H, W, 3)
-        src_c2w = torch.from_numpy(src_c2w)       # (N_src, 4, 4)
-        intr = torch.from_numpy(self.intrinsics)  # (4,)
+        tgt_rgb = torch.from_numpy(tgt_rgb_np)       # (H, W, 3)
+        tgt_c2w = torch.from_numpy(tgt_c2w_np)       # (4, 4)
+        src_rgbs = torch.from_numpy(src_rgbs_np)     # (N_src, H, W, 3)
+        src_c2w  = torch.from_numpy(src_c2w_np)      # (N_src, 4, 4)
+        intr     = torch.from_numpy(self.intrinsics) # (4,)
 
-        return {
+        H, W = tgt_rgb.shape[:2]
+
+        # ----- 기본 키들 -----
+        data = {
             "target_rgb": tgt_rgb,
             "target_c2w": tgt_c2w,
             "src_rgbs": src_rgbs,
@@ -126,3 +136,32 @@ class TransformsDataset(Dataset):
             "scene_name": self.scene_name,
             "img_index": idx,
         }
+
+        # ----- IBRNet 호환 키들 추가 -----
+        # rgb: 타겟 이미지
+        data["rgb"] = tgt_rgb
+
+        # rgb_path: 현재 타겟 이미지의 경로 (문자열)
+        # self.image_paths는 __init__에서 만듬
+        data["rgb_path"] = str(self.image_paths[idx])
+
+        # camera: 단일 타겟 뷰 카메라 정보
+        data["camera"] = {
+            "H": H,
+            "W": W,
+            "intrinsics": intr,   # [fx, fy, cx, cy] tensor
+            "c2w": tgt_c2w,       # (4, 4) tensor
+        }
+
+        # src_cameras: 소스 뷰 카메라 정보 리스트
+        src_cameras = []
+        for i in range(src_c2w.shape[0]):
+            src_cameras.append({
+                "H": H,
+                "W": W,
+                "intrinsics": intr,
+                "c2w": src_c2w[i],   # (4, 4) tensor
+            })
+        data["src_cameras"] = src_cameras
+
+        return data
