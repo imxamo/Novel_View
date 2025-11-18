@@ -16,14 +16,14 @@ train_scenes = 609
 # --------- 학습 관련 하이퍼파라미터 ---------
 
 # 한 iteration당 샘플링할 ray 개수 (공식 코드 기본값도 이 근처)
-N_rand = 512
+N_rand = 256
 
 # 총 iteration 수 (= max_steps 비슷한 역할)
 n_iters = 10000
 
 # coarse / fine 샘플 개수
-N_samples = 64
-N_importance = 64
+N_samples = 48
+N_importance = 32
 
 # 학습률 (필요하면 나중에 조정)
 lrate_feature = 5e-4
