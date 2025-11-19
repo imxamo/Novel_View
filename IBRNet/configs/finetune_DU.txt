@@ -38,7 +38,7 @@ coarse_feat_dim = 32
 fine_feat_dim = 32
 
 # 한 타겟 뷰당 선택할 소스 뷰 수 (DU dataset 구현과 맞추기)
-num_source_views = 4
+num_source_views = 1
 
 # 기타 옵션들은 기본값 사용 (필요하면 나중에 켜기)
 # inv_uniform = False
