@@ -1,6 +1,3 @@
-# configs/finetune_DU_24GB_3h.txt
-# IBRNet + DU (transforms.json) 실험용 설정 (24GB GPU, 1 scene ≈ 3h)
-
 #############################################
 # DATASET
 #############################################
@@ -9,7 +6,7 @@ train_dataset = DU
 dataset_weights = 1.0
 
 # 데이터 루트
-rootdir = C:/NovelView_IBRNet/data/classrooms
+rootdir = /home/ubuntu/datasets/classrooms
 
 # 학습할 씬 (폴더 이름 기준)
 train_scenes = 609
