@@ -1,6 +1,6 @@
 ### INPUT
 expname = finetune_llff
-rootdir = /home/Novel_View/IBRNet/  # REPLACE THIS with YOUR PATH.
+rootdir = /home/Novel_View/IBRNet  # REPLACE THIS with YOUR PATH.
 ckpt_path = None  # REPLACE THIS with YOUR PATH. /home/qw246/S7/code/IBRNet/pretrained/model_255000.pth
 no_reload = True
 render_stride = 2
@@ -11,9 +11,9 @@ n_iters = 9000
 
 ## dataset
 train_dataset = llff_test
-train_scenes = fern
+train_scenes = 609 #########################################
 eval_dataset = llff_test
-eval_scenes = fern
+eval_scenes = 609 #########################################
 
 ### TRAINING
 N_rand = 500
