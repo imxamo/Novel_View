@@ -27,7 +27,13 @@ from ibrnet.data_loaders import dataset_dict
 # 1) transforms.json 로드해서 포즈 정보 가져오기
 # ------------------------------------------------------------
 def load_du_poses(scene_root):
-    tf_path = os.path.join(scene_root, "sparse/0/transforms.json")
+    # DU 데이터셋에서 학습에 사용하던 transforms 위치와 맞추기
+    #   ex) /home/ubuntu/datasets/classrooms/606/transforms.json
+    tf_path = os.path.join(scene_root, "transforms.json")
+
+    if not os.path.exists(tf_path):
+        raise FileNotFoundError(f"transforms.json not found: {tf_path}")
+
     with open(tf_path, "r") as f:
         meta = json.load(f)
 
