@@ -99,14 +99,33 @@ def render_path_spiral(center, radius, N_frames=120, height=0.0, depth=0.0):
 # ------------------------------------------------------------
 # 4) 프레임 렌더링
 # ------------------------------------------------------------
-def render_single_pose(model, projector, device, data, pose, args):
-    # pose를 타겟 카메라로 강제로 교체
-    data["c2w"] = torch.from_numpy(pose).unsqueeze(0).float()
+def render_single_pose(model, projector, device, base_data, pose, args):
+    # base_data는 test_loader에서 나온 원본 src info
+    # → 레퍼런스로 쓰고, 내부 수정은 shallow copy로 수행
+    data = dict(base_data)
 
+    # 1) 기존 camera 벡터 (1,34) 중 batch 0을 꺼냄
+    #    camera 구조:
+    #      [0]   = H
+    #      [1]   = W
+    #      [2:18]  = intrinsics(4x4)
+    #      [18:34] = c2w(4x4)
+    cam = data["camera"][0].clone()       # shape: (34,)
+
+    # 2) 새 pose(4x4)를 camera extrinsics 영역(18:34)에 반영
+    new_c2w_flat = torch.from_numpy(pose.astype(np.float32).reshape(-1))  # (16,)
+    cam[18:34] = new_c2w_flat
+
+    # 3) 다시 batch dimension 붙여서 data["camera"]로 넣기
+    data["camera"] = cam.unsqueeze(0)     # shape: (1,34)
+
+    # 4) 이제 RaySamplerSingleImage가 이 새로운 카메라 포즈를 사용하여
+    #    ray_o, ray_d를 새로 생성하고, projector 및 IBRNet이 이 포즈 기준으로 렌더링함
     with torch.no_grad():
         ray_sampler = RaySamplerSingleImage(data, device=device)
         ray_batch = ray_sampler.get_all()
 
+        # src view feature
         featmaps = model.feature_net(
             ray_batch["src_rgbs"].squeeze(0).permute(0, 3, 1, 2)
         )
@@ -125,6 +144,7 @@ def render_single_pose(model, projector, device, data, pose, args):
             featmaps=featmaps
         )
 
+    # coarse/fine 중 fine이 있으면 fine 사용
     rgb = ret["outputs_fine"]["rgb"] if ret["outputs_fine"] is not None else ret["outputs_coarse"]["rgb"]
     rgb = rgb.detach().cpu().numpy()
     rgb = np.clip(rgb, 0.0, 1.0)
