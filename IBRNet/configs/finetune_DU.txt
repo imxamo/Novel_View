@@ -62,3 +62,9 @@ num_source_views = 4
 i_print   = 100
 i_img     = 1500      # CHANGED
 i_weights = 3000      # CHANGED
+
+#############################################
+# 렌더링용 : A100 40GB
+#############################################
+chunk_size = 4096
+render_stride = 1
