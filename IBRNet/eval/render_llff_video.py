@@ -16,6 +16,7 @@
 from torch.utils.data import Dataset
 import sys
 sys.path.append('../')
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from torch.utils.data import DataLoader
 import imageio
 from config import config_parser
