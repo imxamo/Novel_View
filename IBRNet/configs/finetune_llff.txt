@@ -1,13 +1,13 @@
 ### INPUT
 expname = finetune_llff
-rootdir = /home/qw246/S7/code/IBRNet/  # REPLACE THIS with YOUR PATH.
-ckpt_path = /home/qw246/S7/code/IBRNet/pretrained/model_255000.pth  # REPLACE THIS with YOUR PATH.
-no_reload = False
+rootdir = /home/Novel_View/IBRNet/  # REPLACE THIS with YOUR PATH.
+ckpt_path = None  # REPLACE THIS with YOUR PATH. /home/qw246/S7/code/IBRNet/pretrained/model_255000.pth
+no_reload = True
 render_stride = 2
 distributed = True
 no_load_opt = True
 no_load_scheduler = True
-n_iters = 60000
+n_iters = 9000
 
 ## dataset
 train_dataset = llff_test
